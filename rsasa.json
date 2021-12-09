@@ -12,7 +12,8 @@
     "product_vendor": "RSA",
     "product_name": "RSA Security Analytics",
     "product_version_regex": ".*",
-    "min_phantom_version": "4.9.39220",
+    "min_phantom_version": "5.0.0",
+    "fips_compliant": true,
     "python_version": "3",
     "latest_tested_versions": [
         "On-prem v10.6.0.0.22075-5"
