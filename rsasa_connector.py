@@ -494,6 +494,19 @@ class RSASAConnector(phantom.BaseConnector):
 
         return phantom.APP_SUCCESS
 
+    def _get_fips_enabled(self):
+        try:
+            from phantom_common.install_info import is_fips_enabled
+        except ImportError:
+            return False
+
+        fips_enabled = is_fips_enabled()
+        if fips_enabled:
+            self.debug_print('FIPS is enabled')
+        else:
+            self.debug_print('FIPS is not enabled')
+        return fips_enabled
+
     def _create_dict_hash(self, input_dict):
 
         input_dict_str = None
@@ -507,7 +520,11 @@ class RSASAConnector(phantom.BaseConnector):
             self.debug_print('Handled exception in _create_dict_hash', e)
             return None
 
-        return hashlib.md5(input_dict_str.encode()).hexdigest()
+        fips_enabled = self._get_fips_enabled()
+        if not fips_enabled:
+            return hashlib.md5(input_dict_str.encode()).hexdigest()
+
+        return hashlib.sha256(input_dict_str.encode()).hexdigest()
 
     def _parse_results(self, action_result, param, results):
 
