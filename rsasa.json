@@ -8,11 +8,12 @@
     "license": "Copyright (c) 2017-2021 Splunk Inc.",
     "main_module": "rsasa_connector.py",
     "app_version": "2.0.3",
-    "utctime_updated": "2022-02-03T01:09:14.000000Z",
+    "utctime_updated": "2022-01-07T21:48:42.000000Z",
     "product_vendor": "RSA",
     "product_name": "RSA Security Analytics",
     "product_version_regex": ".*",
-    "min_phantom_version": "4.9.39220",
+    "min_phantom_version": "5.0.0",
+    "fips_compliant": true,
     "python_version": "3",
     "latest_tested_versions": [
         "On-prem v10.6.0.0.22075-5"
