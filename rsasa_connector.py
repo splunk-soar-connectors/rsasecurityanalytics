@@ -197,9 +197,15 @@ class RSASAConnector(phantom.BaseConnector):
 
         return ""
 
-    def _make_rest_call(self, endpoint, result, params={}, headers={}):
+    def _make_rest_call(self, endpoint, result, params=None, headers=None):
         """ Will query the endpoint, parses the response and returns status and data,
         BEWARE data can be None"""
+
+        if params is None:
+            params = {}
+
+        if headers is None:
+            headers = {}
 
         # Get the config
         config = self.get_config()
