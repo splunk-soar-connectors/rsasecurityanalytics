@@ -15,22 +15,20 @@
 #
 #
 # Phantom imports
-import phantom.app as phantom
-
-# THIS Connector imports
-import rsasa_consts as consts
-
+import calendar
+import hashlib
+import json
 import re
 import time
-import json
-import hashlib
-import requests
-import calendar
-import parse_incidents as pi
+from datetime import datetime, timedelta
 
+import phantom.app as phantom
+import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
-from datetime import timedelta
+
+import parse_incidents as pi
+# THIS Connector imports
+import rsasa_consts as consts
 
 
 class RetVal(tuple):
@@ -738,11 +736,10 @@ class RSASAConnector(phantom.BaseConnector):
 if __name__ == '__main__':
     # Imports
     import sys
-    # import pudb
 
+    # import pudb
     # Breakpoint at runtime
     # pudb.set_trace()
-
     # The first param is the input json file
     with open(sys.argv[1]) as f:
         # Load the input json file
