@@ -225,7 +225,7 @@ class RSASAConnector(phantom.BaseConnector):
             # error
             detail = self._get_http_error_details(r)
             return RetVal(result.set_status(phantom.APP_ERROR,
-                                            "Call failed with HTTP Code: {0}. Reason: {1}. Details: {2}".format(r.status_code, r.reason, detail)), None)
+                "Call failed with HTTP Code: {0}. Reason: {1}. Details: {2}".format(r.status_code, r.reason, detail)), None)
 
         # Try a json load
         try:
@@ -265,7 +265,8 @@ class RSASAConnector(phantom.BaseConnector):
     def _restart_service(self, param):
 
         action_result = self.add_action_result(phantom.ActionResult(param))
-        return action_result.set_status(phantom.APP_ERROR, "This action has been deprecated. Please use the NetWitness Logs and Packets 'restart device' action instead.")
+        return action_result.set_status(phantom.APP_ERROR,
+            "This action has been deprecated. Please use the NetWitness Logs and Packets 'restart device' action instead.")
 
     def _list_incidents(self, param):
 
@@ -371,12 +372,14 @@ class RSASAConnector(phantom.BaseConnector):
         """get all alerts for an incident"""
 
         endpoint = "/ajax/alerts/{0}".format(self._inc_mgnt_id)
-        query_params = {'start': 0, 'limit': limit if limit is not None else consts.RSASA_DEFAULT_PAGE_SIZE, 'sort': '[{"property": "alert.timestamp", "direction": "DESC"}]'}
+        query_params = {'start': 0, 'limit': limit if limit is not None else consts.RSASA_DEFAULT_PAGE_SIZE,
+            'sort': '[{"property": "alert.timestamp", "direction": "DESC"}]'}
 
         if incident:
             query_params['filter'] = '[{{"property": "incidentId", "value": "{0}"}}]'.format(incident)
         else:
-            query_params['filter'] = '[{{"property": "alert.timestamp", "value": [{0}, {1}]}}]'.format(consts.RSASA_DEFAULT_START_TIME, int(time.time()) * 1000)
+            query_params['filter'] = '[{{"property": "alert.timestamp", "value": [{0}, {1}]}}]'.format(
+                consts.RSASA_DEFAULT_START_TIME, int(time.time()) * 1000)
 
         alerts = []
         page = 1
@@ -407,7 +410,8 @@ class RSASAConnector(phantom.BaseConnector):
         """get all events for an alert"""
 
         endpoint = "/ajax/alerts/events/{0}/{1}".format(self._inc_mgnt_id, alert)
-        query_params = {'start': 0, 'limit': limit if limit is not None else consts.RSASA_DEFAULT_PAGE_SIZE, 'sort': '[{"property": "timestamp", "direction": "DESC"}]'}
+        query_params = {'start': 0, 'limit': limit if limit is not None else consts.RSASA_DEFAULT_PAGE_SIZE,
+            'sort': '[{"property": "timestamp", "direction": "DESC"}]'}
 
         events = []
         page = 1
