@@ -263,11 +263,14 @@ class RSASAConnector(phantom.BaseConnector):
         # and the BaseConnector will not call any actions, so the fact
         # that _test_connectivity got called means everything is fine.
         #
+        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
         self.save_progress("Test Connectivity Successful")
         return self.set_status(phantom.APP_SUCCESS, "Test Connectivity Successful")
 
     def _restart_service(self, param):
 
+        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
+        self.debug_print(param)
         action_result = self.add_action_result(phantom.ActionResult(param))
         return action_result.set_status(phantom.APP_ERROR,
             "This action has been deprecated. Please use the NetWitness Logs and Packets 'restart device' action instead.")
@@ -765,4 +768,4 @@ if __name__ == '__main__':
         # Dump the return value
         print(ret_val)
 
-    exit(0)
+    sys.exit(0)
