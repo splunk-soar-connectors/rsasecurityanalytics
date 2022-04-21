@@ -6,7 +6,7 @@ Connector Version: 2\.0\.3
 Product Vendor: RSA  
 Product Name: RSA Security Analytics  
 Product Version Supported (regex): "\.\*"  
-Minimum Product Version: 5\.0\.0  
+Minimum Product Version: 5\.2\.0  
 
 This App supports ingestion and investigative actions on RSA Security Analytics
 
