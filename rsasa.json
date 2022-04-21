@@ -5,14 +5,15 @@
     "publisher": "Splunk",
     "package_name": "phantom_rsasa",
     "type": "siem",
-    "license": "Copyright (c) 2017-2021 Splunk Inc.",
+    "license": "Copyright (c) 2017-2022 Splunk Inc.",
     "main_module": "rsasa_connector.py",
-    "app_version": "2.0.0",
-    "utctime_updated": "2021-06-28T12:20:33.000000Z",
+    "app_version": "2.0.3",
+    "utctime_updated": "2022-01-07T21:48:42.000000Z",
     "product_vendor": "RSA",
     "product_name": "RSA Security Analytics",
     "product_version_regex": ".*",
-    "min_phantom_version": "4.9.39220",
+    "min_phantom_version": "5.2.0",
+    "fips_compliant": true,
     "python_version": "3",
     "latest_tested_versions": [
         "On-prem v10.6.0.0.22075-5"
@@ -1031,5 +1032,37 @@
             ],
             "versions": "EQ(*)"
         }
-    ]
+    ],
+    "pip_dependencies": {
+        "wheel": [
+            {
+                "module": "beautifulsoup4",
+                "input_file": "wheels/beautifulsoup4-4.9.1-py3-none-any.whl"
+            },
+            {
+                "module": "certifi",
+                "input_file": "wheels/certifi-2021.10.8-py2.py3-none-any.whl"
+            },
+            {
+                "module": "chardet",
+                "input_file": "wheels/chardet-3.0.4-py2.py3-none-any.whl"
+            },
+            {
+                "module": "idna",
+                "input_file": "wheels/idna-2.10-py2.py3-none-any.whl"
+            },
+            {
+                "module": "requests",
+                "input_file": "wheels/requests-2.25.0-py2.py3-none-any.whl"
+            },
+            {
+                "module": "soupsieve",
+                "input_file": "wheels/soupsieve-2.3-py3-none-any.whl"
+            },
+            {
+                "module": "urllib3",
+                "input_file": "wheels/urllib3-1.26.7-py2.py3-none-any.whl"
+            }
+        ]
+    }
 }

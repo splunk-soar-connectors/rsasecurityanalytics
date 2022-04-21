@@ -1,29 +1,34 @@
-# --
 # File: rsasa_connector.py
 #
-# Copyright (c) 2017-2021 Splunk Inc.
+# Copyright (c) 2017-2022 Splunk Inc.
 #
-# Licensed under Apache 2.0 (https://www.apache.org/licenses/LICENSE-2.0.txt)
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# --
-
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software distributed under
+# the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+# either express or implied. See the License for the specific language governing permissions
+# and limitations under the License.
+#
+#
 # Phantom imports
-import phantom.app as phantom
-
-# THIS Connector imports
-import rsasa_consts as consts
-
+import calendar
+import hashlib
+import json
 import re
 import time
-import json
-import hashlib
-import requests
-import calendar
-import parse_incidents as pi
+from datetime import datetime, timedelta
 
+import phantom.app as phantom
+import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
-from datetime import timedelta
+
+import parse_incidents as pi
+# THIS Connector imports
+import rsasa_consts as consts
 
 
 class RetVal(tuple):
@@ -192,9 +197,15 @@ class RSASAConnector(phantom.BaseConnector):
 
         return ""
 
-    def _make_rest_call(self, endpoint, result, params={}, headers={}):
+    def _make_rest_call(self, endpoint, result, params=None, headers=None):
         """ Will query the endpoint, parses the response and returns status and data,
         BEWARE data can be None"""
+
+        if params is None:
+            params = {}
+
+        if headers is None:
+            headers = {}
 
         # Get the config
         config = self.get_config()
@@ -218,7 +229,7 @@ class RSASAConnector(phantom.BaseConnector):
             # error
             detail = self._get_http_error_details(r)
             return RetVal(result.set_status(phantom.APP_ERROR,
-                                            "Call failed with HTTP Code: {0}. Reason: {1}. Details: {2}".format(r.status_code, r.reason, detail)), None)
+                "Call failed with HTTP Code: {0}. Reason: {1}. Details: {2}".format(r.status_code, r.reason, detail)), None)
 
         # Try a json load
         try:
@@ -252,13 +263,17 @@ class RSASAConnector(phantom.BaseConnector):
         # and the BaseConnector will not call any actions, so the fact
         # that _test_connectivity got called means everything is fine.
         #
+        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
         self.save_progress("Test Connectivity Successful")
         return self.set_status(phantom.APP_SUCCESS, "Test Connectivity Successful")
 
     def _restart_service(self, param):
 
+        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
+        self.debug_print(param)
         action_result = self.add_action_result(phantom.ActionResult(param))
-        return action_result.set_status(phantom.APP_ERROR, "This action has been deprecated. Please use the NetWitness Logs and Packets 'restart device' action instead.")
+        return action_result.set_status(phantom.APP_ERROR,
+            "This action has been deprecated. Please use the NetWitness Logs and Packets 'restart device' action instead.")
 
     def _list_incidents(self, param):
 
@@ -364,12 +379,14 @@ class RSASAConnector(phantom.BaseConnector):
         """get all alerts for an incident"""
 
         endpoint = "/ajax/alerts/{0}".format(self._inc_mgnt_id)
-        query_params = {'start': 0, 'limit': limit if limit is not None else consts.RSASA_DEFAULT_PAGE_SIZE, 'sort': '[{"property": "alert.timestamp", "direction": "DESC"}]'}
+        query_params = {'start': 0, 'limit': limit if limit is not None else consts.RSASA_DEFAULT_PAGE_SIZE,
+            'sort': '[{"property": "alert.timestamp", "direction": "DESC"}]'}
 
         if incident:
             query_params['filter'] = '[{{"property": "incidentId", "value": "{0}"}}]'.format(incident)
         else:
-            query_params['filter'] = '[{{"property": "alert.timestamp", "value": [{0}, {1}]}}]'.format(consts.RSASA_DEFAULT_START_TIME, int(time.time()) * 1000)
+            query_params['filter'] = '[{{"property": "alert.timestamp", "value": [{0}, {1}]}}]'.format(
+                consts.RSASA_DEFAULT_START_TIME, int(time.time()) * 1000)
 
         alerts = []
         page = 1
@@ -400,7 +417,8 @@ class RSASAConnector(phantom.BaseConnector):
         """get all events for an alert"""
 
         endpoint = "/ajax/alerts/events/{0}/{1}".format(self._inc_mgnt_id, alert)
-        query_params = {'start': 0, 'limit': limit if limit is not None else consts.RSASA_DEFAULT_PAGE_SIZE, 'sort': '[{"property": "timestamp", "direction": "DESC"}]'}
+        query_params = {'start': 0, 'limit': limit if limit is not None else consts.RSASA_DEFAULT_PAGE_SIZE,
+            'sort': '[{"property": "timestamp", "direction": "DESC"}]'}
 
         events = []
         page = 1
@@ -487,6 +505,19 @@ class RSASAConnector(phantom.BaseConnector):
 
         return phantom.APP_SUCCESS
 
+    def _get_fips_enabled(self):
+        try:
+            from phantom_common.install_info import is_fips_enabled
+        except ImportError:
+            return False
+
+        fips_enabled = is_fips_enabled()
+        if fips_enabled:
+            self.debug_print('FIPS is enabled')
+        else:
+            self.debug_print('FIPS is not enabled')
+        return fips_enabled
+
     def _create_dict_hash(self, input_dict):
 
         input_dict_str = None
@@ -500,7 +531,11 @@ class RSASAConnector(phantom.BaseConnector):
             self.debug_print('Handled exception in _create_dict_hash', e)
             return None
 
-        return hashlib.md5(input_dict_str.encode()).hexdigest()
+        fips_enabled = self._get_fips_enabled()
+        if not fips_enabled:
+            return hashlib.md5(input_dict_str.encode()).hexdigest()
+
+        return hashlib.sha256(input_dict_str.encode()).hexdigest()
 
     def _parse_results(self, action_result, param, results):
 
@@ -710,11 +745,10 @@ class RSASAConnector(phantom.BaseConnector):
 if __name__ == '__main__':
     # Imports
     import sys
-    # import pudb
 
+    # import pudb
     # Breakpoint at runtime
     # pudb.set_trace()
-
     # The first param is the input json file
     with open(sys.argv[1]) as f:
         # Load the input json file
@@ -734,4 +768,4 @@ if __name__ == '__main__':
         # Dump the return value
         print(ret_val)
 
-    exit(0)
+    sys.exit(0)
