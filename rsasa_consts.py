@@ -1,6 +1,6 @@
 # File: rsasa_consts.py
 #
-# Copyright (c) 2017-2024 Splunk Inc.
+# Copyright (c) 2017-2025 Splunk Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # and limitations under the License.
 RSASA_JSON_URL = "url"
 RSASA_JSON_USERNAME = "username"
-RSASA_JSON_PASSWORD = "password"
+RSASA_JSON_PASSWORD = "password"  # pragma: allowlist secret
 RSASA_JSON_LAST_DATE_TIME = "last_date_time"
 RSASA_JSON_INCIDENT_MANAGER = "incident_manager"
 RSASA_JSON_EXTRACT_COMPONENTS = "extract_components"
