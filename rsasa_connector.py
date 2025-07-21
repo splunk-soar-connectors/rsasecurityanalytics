@@ -442,6 +442,7 @@ class RSASAConnector(phantom.BaseConnector):
 
     def _extract_device_and_hash(self, event):
         investigate_url = ""
+        event_id = ""
         for link in event["related_links"]:
             if link["type"] == "investigate_original_event":
                 investigate_url = "{}{}".format(self._base_url, link["url"])
