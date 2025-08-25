@@ -1,9 +1,9 @@
 # RSA Security Analytics
 
-Publisher: Splunk \
-Connector Version: 2.0.5 \
-Product Vendor: RSA \
-Product Name: RSA Security Analytics \
+Publisher: Splunk <br>
+Connector Version: 2.0.5 <br>
+Product Vendor: RSA <br>
+Product Name: RSA Security Analytics <br>
 Minimum Product Version: 5.2.0
 
 This App supports ingestion and investigative actions on RSA Security Analytics
@@ -25,19 +25,19 @@ VARIABLE | REQUIRED | TYPE | DESCRIPTION
 
 ### Supported Actions
 
-[test connectivity](#action-test-connectivity) - Validate the credentials provided for connectivity \
-[on poll](#action-on-poll) - Ingest incidents from RSA Security Analytics \
-[restart service](#action-restart-service) - DEPRECATED \
-[list incidents](#action-list-incidents) - List incidents within a time frame \
-[list alerts](#action-list-alerts) - List alerts for an incident \
-[list events](#action-list-events) - List events for an alert \
+[test connectivity](#action-test-connectivity) - Validate the credentials provided for connectivity <br>
+[on poll](#action-on-poll) - Ingest incidents from RSA Security Analytics <br>
+[restart service](#action-restart-service) - DEPRECATED <br>
+[list incidents](#action-list-incidents) - List incidents within a time frame <br>
+[list alerts](#action-list-alerts) - List alerts for an incident <br>
+[list events](#action-list-events) - List events for an alert <br>
 [list devices](#action-list-devices) - List devices connected to RSA Security Analytics
 
 ## action: 'test connectivity'
 
 Validate the credentials provided for connectivity
 
-Type: **test** \
+Type: **test** <br>
 Read only: **True**
 
 #### Action Parameters
@@ -52,7 +52,7 @@ No Output
 
 Ingest incidents from RSA Security Analytics
 
-Type: **ingest** \
+Type: **ingest** <br>
 Read only: **True**
 
 Basic configuration parameters for this action are available in asset configuration.<br><br>The app ingests incidents in ascending order by create time. Therefore, each polling interval, if <b>max_incidents</b> is set to <b>n</b>, the app will return the next <b>n</b> created incidents.<br><br>The <b>poll_now_ingestion_span</b> parameter dictates how far back, in days, the app will search to ingest incidents when running a poll now.<br><br>The <b>first_scheduled_ingestion_span</b> parameter decides how far back, in days, the app will search to ingest incidents during the first polling interval. The app will ingest incidents starting with the beginning of this span.<br><br>The <b>incident_manager</b> parameter is required for ingestion.<br><br>During ingestion, a container is created for each incident. In each container, an artifact is created for each alert and each event associated with the incident.<br><br>For each container, the source ID will be set to the incident ID. All data retrieved from RSA Security Analytics will be saved in the data section of the container.<br><br>For each artifact created for an alert, the source ID will be set to the alert ID. These artifacts will contain the following CEF fields (as well as others):<ul><li>incidentId</li><li>alertId</li><li>name</li><li>numEvents</li><li>events</li><li>partOfIncident</li><li>risk_score</li><li>severity</li></ul><br>For each artifact created for an event, the source ID will be set to the session ID that the event resulted from. These artifacts will contain the following CEF fields (as well as others):<ul><li>sessionId</li><li>type</li></ul>
@@ -75,7 +75,7 @@ No Output
 
 DEPRECATED
 
-Type: **generic** \
+Type: **generic** <br>
 Read only: **False**
 
 Please use the NetWitness Logs and Packets 'restart device' action instead.
@@ -100,7 +100,7 @@ summary.total_objects_successful | numeric | | |
 
 List incidents within a time frame
 
-Type: **investigate** \
+Type: **investigate** <br>
 Read only: **True**
 
 If <b>start_time</b> is not specified, the app will use the epoch.<br><br>If <b>end_time</b> is not specified, the app will use the current time.<br><br>The app searches in descending order by create time. Therefore if <b>limit</b> is set to <b>n</b>, the app will return the <b>n</b> most recently created incidents. If the <b>limit</b> parameter is left unspecified, it will default to 100.
@@ -159,7 +159,7 @@ summary.total_objects_successful | numeric | | |
 
 List alerts for an incident
 
-Type: **investigate** \
+Type: **investigate** <br>
 Read only: **True**
 
 The app searches in descending order by create time. Therefore if <b>limit</b> is set to <b>n</b>, the app will return the <b>n</b> most recently created alerts. If the <b>limit</b> parameter is left unspecified, it will default to 100.
@@ -214,7 +214,7 @@ summary.total_objects_successful | numeric | | |
 
 List events for an alert
 
-Type: **investigate** \
+Type: **investigate** <br>
 Read only: **True**
 
 The app searches in descending order by create time. Therefore if <b>limit</b> is set to <b>n</b>, the app will return the <b>n</b> most recently created alerts. If the <b>limit</b> parameter is left unspecified, it will default to 100.
@@ -298,7 +298,7 @@ summary.total_objects_successful | numeric | | |
 
 List devices connected to RSA Security Analytics
 
-Type: **investigate** \
+Type: **investigate** <br>
 Read only: **True**
 
 #### Action Parameters
