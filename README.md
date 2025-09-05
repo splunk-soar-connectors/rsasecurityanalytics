@@ -1,7 +1,7 @@
 # RSA Security Analytics
 
 Publisher: Splunk <br>
-Connector Version: 2.0.5 <br>
+Connector Version: 2.0.6 <br>
 Product Vendor: RSA <br>
 Product Name: RSA Security Analytics <br>
 Minimum Product Version: 5.2.0
