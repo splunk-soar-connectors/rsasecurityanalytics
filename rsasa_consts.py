@@ -1,6 +1,6 @@
 # File: rsasa_consts.py
 #
-# Copyright (c) 2017-2025 Splunk Inc.
+# Copyright (c) 2017-2026 Splunk Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ RSASA_ERR_JSON_PARSE = "Unable to parse reply, raw string reply: '{raw_text}'"
 RSASA_REST_CALL_FAIL = "Call to server failed with error code: {0}, message: {1}"
 
 RSASA_DEFAULT_PAGE_SIZE = 100
+RSASA_MAX_PAGES = 1000
 RSASA_DEFAULT_ALERT_LIMIT = 100
 RSASA_DEFAULT_EVENT_LIMIT = 100
 RSASA_DEFAULT_CONTAINER_COUNT = 100
