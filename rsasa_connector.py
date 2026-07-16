@@ -87,7 +87,7 @@ class RSASAConnector(phantom.BaseConnector):
         data = {"j_username": config[consts.RSASA_JSON_USERNAME], "j_password": config[consts.RSASA_JSON_PASSWORD]}
 
         try:
-            r = self._session.post(url, data=data, verify=config[consts.RSASA_JSON_VERIFY_SERVER_CERT])
+            r = self._session.post(url, data=data, verify=config.get(consts.RSASA_JSON_VERIFY_SERVER_CERT, True))
         except Exception as e:
             if self.get_action_identifier() == self.ACTION_ID_TEST_ASSET_CONNECTIVITY:
                 self.save_progress(consts.RSASA_ERR_TEST_CONNECTIVITY)
@@ -168,7 +168,7 @@ class RSASAConnector(phantom.BaseConnector):
         url = f"{config[consts.RSASA_JSON_URL]}/j_spring_security_logout"
 
         try:
-            self._session.get(url, verify=config[consts.RSASA_JSON_VERIFY_SERVER_CERT])
+            self._session.get(url, verify=config.get(consts.RSASA_JSON_VERIFY_SERVER_CERT, True))
         except Exception as e:
             self.debug_print(f"Logout failed: {e!s}")
 
@@ -213,7 +213,7 @@ class RSASAConnector(phantom.BaseConnector):
 
         # Make the call
         try:
-            r = self._session.get(url, params=params, verify=config[consts.RSASA_JSON_VERIFY_SERVER_CERT], headers=headers)
+            r = self._session.get(url, params=params, verify=config.get(consts.RSASA_JSON_VERIFY_SERVER_CERT, True), headers=headers)
         except Exception as e:
             return RetVal(result.set_status(phantom.APP_ERROR, consts.RSASA_ERR_SERVER_CONNECTION, e), resp_json)
 
@@ -454,7 +454,7 @@ class RSASAConnector(phantom.BaseConnector):
             return RetVal(phantom.APP_ERROR, "Could not extract file hash. Could not find investigate URL.")
 
         try:
-            r = self._session.get(investigate_url, verify=self.get_config()[consts.RSASA_JSON_VERIFY_SERVER_CERT])
+            r = self._session.get(investigate_url, verify=self.get_config().get(consts.RSASA_JSON_VERIFY_SERVER_CERT, True))
         except Exception as e:
             return RetVal(phantom.APP_ERROR, f"Unable to connect to server. Error: {e!s}")
 
@@ -479,7 +479,11 @@ class RSASAConnector(phantom.BaseConnector):
             url = f"{self._base_url}/investigation/{device_id}/reconstruction/{event_id}/fileview"
 
             try:
-                r = self._session.post(url, data={"ctoken": self._csrf}, verify=self.get_config()[consts.RSASA_JSON_VERIFY_SERVER_CERT])
+                r = self._session.post(
+                    url,
+                    data={"ctoken": self._csrf},
+                    verify=self.get_config().get(consts.RSASA_JSON_VERIFY_SERVER_CERT, True),
+                )
             except Exception as e:
                 return RetVal(phantom.APP_ERROR, f"Unable to connect to server. Error: {e!s}")
 
