@@ -556,12 +556,15 @@ class RSASAConnector(phantom.BaseConnector):
         if param:
             container_count = param.get(phantom.APP_JSON_CONTAINER_COUNT, consts.RSASA_DEFAULT_CONTAINER_COUNT)
 
+        total_results = len(results)
         results = results[:container_count]
+        failed = total_results - len(results)
 
         for i, result in enumerate(results):
             container = result.get("container")
 
             if not container:
+                failed += 1
                 continue
 
             self.send_progress(f"Saving Container # {i + 1}")
@@ -570,6 +573,7 @@ class RSASAConnector(phantom.BaseConnector):
                 (ret_val, message, container_id) = self.save_container(container)
             except Exception as e:
                 self.debug_print("Handled Exception while saving container", e)
+                failed += 1
                 continue
 
             self.debug_print(f"save_container returns, value: {ret_val}, reason: {message}, id: {container_id}")
@@ -578,11 +582,13 @@ class RSASAConnector(phantom.BaseConnector):
                 self.save_progress(message)
                 message = "Failed to add Container for id: {}, error msg: {}".format(container.get("source_data_identifier", "N/A"), message)
                 self.debug_print(message)
+                failed += 1
                 continue
 
             if not container_id:
                 message = "save_container did not return a container_id"
                 self.debug_print(message)
+                failed += 1
                 continue
 
             artifacts = result.get("artifacts")
@@ -591,8 +597,10 @@ class RSASAConnector(phantom.BaseConnector):
 
             len_artifacts = len(artifacts)
 
+            incident_failed = False
             for j, artifact in enumerate(artifacts):
                 if not artifact:
+                    incident_failed = True
                     continue
 
                 # add the container id to the artifact
@@ -604,10 +612,20 @@ class RSASAConnector(phantom.BaseConnector):
                     # mark it such that active playbooks get executed
                     artifact["run_automation"] = True
 
-                ret_val, status_string, artifact_id = self.save_artifact(artifact)
+                try:
+                    ret_val, status_string, artifact_id = self.save_artifact(artifact)
+                except Exception as e:
+                    self.debug_print("Handled Exception while saving artifact", e)
+                    incident_failed = True
+                    continue
                 self.debug_print(f"save_artifact returns, value: {ret_val}, reason: {status_string}, id: {artifact_id}")
+                if phantom.is_fail(ret_val) or not artifact_id:
+                    incident_failed = True
 
-        return phantom.APP_SUCCESS
+            if incident_failed:
+                failed += 1
+
+        return failed
 
     def _get_time_range(self):
         # function to separate on poll and poll now
@@ -649,6 +667,8 @@ class RSASAConnector(phantom.BaseConnector):
         else:
             max_containers = config["max_incidents"]
 
+        was_first_run = self._state.get("first_run", True)
+        previous_checkpoint = self._state.get(consts.RSASA_JSON_LAST_DATE_TIME)
         start_time, end_time = self._get_time_range()
 
         self.save_progress(
@@ -688,18 +708,30 @@ class RSASAConnector(phantom.BaseConnector):
 
         self.save_progress(f"Got {len(incidents)} incidents")
 
+        results = pi.parse_incidents(incidents, self)
+        failed_saves = self._parse_results(action_result, param, results)
+
         if not self.is_poll_now():
-            if len(incidents) == int(max_containers):
+            if failed_saves:
+                self._state["first_run"] = was_first_run
+                if previous_checkpoint is None:
+                    self._state.pop(consts.RSASA_JSON_LAST_DATE_TIME, None)
+                else:
+                    self._state[consts.RSASA_JSON_LAST_DATE_TIME] = previous_checkpoint
+                self.debug_print(f"{failed_saves} incident(s) were not durably saved; checkpoint was not advanced")
+            elif len(incidents) == int(max_containers):
                 self._state[consts.RSASA_JSON_LAST_DATE_TIME] = incidents[-1]["created"] + 1
             else:
                 self._state[consts.RSASA_JSON_LAST_DATE_TIME] = end_time + 1
 
-        results = pi.parse_incidents(incidents, self)
-
-        self._parse_results(action_result, param, results)
-
         # blank line to update the last status message
         self.send_progress("")
+
+        if failed_saves:
+            return action_result.set_status(
+                phantom.APP_ERROR,
+                f"Failed to durably save {failed_saves} of {len(results)} incidents; checkpoint not advanced",
+            )
 
         return action_result.set_status(phantom.APP_SUCCESS)
 
