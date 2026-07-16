@@ -21,6 +21,7 @@ import json
 import re
 import time
 from datetime import datetime, timedelta
+from urllib.parse import quote
 
 import phantom.app as phantom
 import requests
@@ -409,7 +410,8 @@ class RSASAConnector(phantom.BaseConnector):
     def _get_events(self, action_result, alert, limit):
         """get all events for an alert"""
 
-        endpoint = f"/ajax/alerts/events/{self._inc_mgnt_id}/{alert}"
+        encoded_alert = quote(str(alert), safe="")
+        endpoint = f"/ajax/alerts/events/{self._inc_mgnt_id}/{encoded_alert}"
         query_params = {
             "start": 0,
             "limit": limit if limit is not None else consts.RSASA_DEFAULT_PAGE_SIZE,

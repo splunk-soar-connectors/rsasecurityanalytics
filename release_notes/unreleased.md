@@ -1,3 +1,3 @@
 **Unreleased**
 
-* chore: establish the Codex vulnerability-remediation baseline.
+* Encode alert identifiers before placing them in list-events request paths. [PSAAS-30642]
