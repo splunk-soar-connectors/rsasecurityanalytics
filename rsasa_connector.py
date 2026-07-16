@@ -386,7 +386,7 @@ class RSASAConnector(phantom.BaseConnector):
         alerts = []
         page = 1
         total = 0
-        while True:
+        while page <= consts.RSASA_MAX_PAGES:
             query_params["page"] = page
 
             ret_val, data = self._make_rest_call(endpoint, action_result, params=query_params)
@@ -397,13 +397,21 @@ class RSASAConnector(phantom.BaseConnector):
             if not total:
                 total = data["total"]
 
-            alerts += data.get("data")
+            page_data = data.get("data") or []
+            if not page_data:
+                break
+
+            alerts += page_data
 
             len_alerts = len(alerts)
-            if len_alerts == total or (limit and len_alerts == limit):
+            if len_alerts >= total or (limit and len_alerts >= limit):
                 break
 
             page += 1
+
+        bounds = [bound for bound in (limit, total) if bound]
+        if bounds:
+            alerts = alerts[: min(bounds)]
 
         return RetVal(phantom.APP_SUCCESS, alerts)
 
@@ -421,7 +429,7 @@ class RSASAConnector(phantom.BaseConnector):
         events = []
         page = 1
         total = 0
-        while True:
+        while page <= consts.RSASA_MAX_PAGES:
             query_params["page"] = page
 
             ret_val, data = self._make_rest_call(endpoint, action_result, params=query_params)
@@ -432,13 +440,21 @@ class RSASAConnector(phantom.BaseConnector):
             if not total:
                 total = data["total"]
 
-            events += data.get("data")
+            page_data = data.get("data") or []
+            if not page_data:
+                break
+
+            events += page_data
 
             len_events = len(events)
-            if len(events) == total or (limit and len_events == limit):
+            if len_events >= total or (limit and len_events >= limit):
                 break
 
             page += 1
+
+        bounds = [bound for bound in (limit, total) if bound]
+        if bounds:
+            events = events[: min(bounds)]
 
         return RetVal(phantom.APP_SUCCESS, events)
 
