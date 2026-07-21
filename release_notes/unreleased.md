@@ -1,3 +1,4 @@
 **Unreleased**
 
 * Handle RSA Security Analytics event responses without file metadata. [PSAAS-32821]
+* Remove Unicode format controls from ingested RSA Security Analytics text. [PSAAS-33223]
