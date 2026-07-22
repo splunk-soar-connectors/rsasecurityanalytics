@@ -336,15 +336,17 @@ class RSASAConnector(phantom.BaseConnector):
             return ret_val
 
         for event in events:
-            if event["data"][0]["filename"] and not event["data"][0]["hash"]:
+            data = event.get("data") or []
+            file_data = data[0] if data and isinstance(data[0], dict) else {}
+            if file_data.get("filename") and not file_data.get("hash"):
                 self._extract_device_and_hash(event)
 
         action_result.add_data(events)
         action_result.set_summary({"num_events": len(events)})
 
         for event in events:
-            for link in event["related_links"]:
-                if link["type"] == "investigate_original_event":
+            for link in event.get("related_links") or []:
+                if link.get("type") == "investigate_original_event" and link.get("url"):
                     event["id"] = link["url"].split("/")[-1]
 
         return action_result.set_status(phantom.APP_SUCCESS)
@@ -461,8 +463,8 @@ class RSASAConnector(phantom.BaseConnector):
     def _extract_device_and_hash(self, event):
         investigate_url = ""
         event_id = ""
-        for link in event["related_links"]:
-            if link["type"] == "investigate_original_event":
+        for link in event.get("related_links") or []:
+            if link.get("type") == "investigate_original_event" and link.get("url"):
                 investigate_url = "{}{}".format(self._base_url, link["url"])
                 event_id = link["url"].split("/")[-1]
 
@@ -483,7 +485,9 @@ class RSASAConnector(phantom.BaseConnector):
         device_name = r.text[device_name_index:].split("'")[0]
         event["device"] = device_name
 
-        if event["data"][0]["filename"] and not event["data"][0]["hash"]:
+        data = event.get("data") or []
+        file_data = data[0] if data and isinstance(data[0], dict) else {}
+        if file_data.get("filename") and not file_data.get("hash"):
             search_token = "deviceId: "
 
             if search_token not in r.text:
@@ -503,7 +507,12 @@ class RSASAConnector(phantom.BaseConnector):
             except Exception as e:
                 return RetVal(phantom.APP_ERROR, f"Unable to connect to server. Error: {e!s}")
 
-            for entry in r.json()["data"].get("fileList")[0]:
+            response_data = r.json().get("data") or {}
+            file_list = response_data.get("fileList") or []
+            if not file_list:
+                return RetVal(phantom.APP_ERROR, "Could not find file metadata in response.")
+
+            for entry in file_list[0] or []:
                 if "MD5" not in entry:
                     continue
 

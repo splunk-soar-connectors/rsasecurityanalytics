@@ -12,6 +12,15 @@
 # the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
 # either express or implied. See the License for the specific language governing permissions
 # and limitations under the License.
+import unicodedata
+
+
+def _strip_format_controls(value):
+    if not isinstance(value, str):
+        return value
+    return "".join(character for character in value if unicodedata.category(character) != "Cf")
+
+
 container_common = {
     "description": "Container added by Phantom",
 }
@@ -104,7 +113,7 @@ def _parse_event(alert, event, event_ids):
         elif key == "data":
             data = value[0] if isinstance(value, list) and value else {}
             if data.get("filename"):
-                cef["fileName"] = data["filename"]
+                cef["fileName"] = _strip_format_controls(data["filename"])
             if data.get("size"):
                 cef["fileSize"] = data["size"]
             if data.get("hash"):
@@ -131,8 +140,8 @@ def parse_incidents(incidents, base_connector):
             container = {}
             artifacts = []
             container["data"] = incident
-            container["name"] = "{} - {}".format(incident["id"], incident["name"])
-            container["description"] = incident["summary"]
+            container["name"] = "{} - {}".format(incident["id"], _strip_format_controls(incident["name"]))
+            container["description"] = _strip_format_controls(incident["summary"])
             container["source_data_identifier"] = incident["id"]
         except Exception as error:
             identifier = incident.get("id") if isinstance(incident, dict) else incident
