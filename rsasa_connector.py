@@ -652,9 +652,15 @@ class RSASAConnector(phantom.BaseConnector):
             dt_diff = utc_now - timedelta(days=int(config[consts.RSASA_JSON_SCHEDULED_POLL_DAYS]))
             start_time = calendar.timegm(dt_diff.timetuple())
             return (start_time * 1000, end_time)
-        elif last_time:
-            start_time = last_time
-            return (start_time, end_time)
+        elif last_time is not None:
+            try:
+                start_time = int(last_time)
+            except (TypeError, ValueError):
+                self.debug_print("Discarding invalid poll checkpoint")
+            else:
+                if 0 <= start_time <= end_time:
+                    return (start_time, end_time)
+                self.debug_print("Discarding out-of-range poll checkpoint")
 
         # treat it as the same days past as first run
         dt_diff = utc_now - timedelta(days=int(config[consts.RSASA_JSON_SCHEDULED_POLL_DAYS]))
@@ -729,7 +735,11 @@ class RSASAConnector(phantom.BaseConnector):
                     self._state[consts.RSASA_JSON_LAST_DATE_TIME] = previous_checkpoint
                 self.debug_print(f"{failed_saves} incident(s) were not durably saved; checkpoint was not advanced")
             elif len(incidents) == int(max_containers):
-                self._state[consts.RSASA_JSON_LAST_DATE_TIME] = incidents[-1]["created"] + 1
+                try:
+                    incident_time = int(incidents[-1]["created"])
+                except (KeyError, TypeError, ValueError):
+                    incident_time = end_time
+                self._state[consts.RSASA_JSON_LAST_DATE_TIME] = min(max(incident_time + 1, start_time), end_time + 1)
             else:
                 self._state[consts.RSASA_JSON_LAST_DATE_TIME] = end_time + 1
 
