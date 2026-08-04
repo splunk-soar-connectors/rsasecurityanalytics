@@ -831,7 +831,7 @@ class RSASAConnector(phantom.BaseConnector):
 
         devices = data.get("data")
 
-        if not data:
+        if not isinstance(devices, list) or not devices:
             return action_result.set_status(phantom.APP_ERROR, consts.RSASA_ERR_NO_DEVICES)
 
         action_result.add_data(devices)
