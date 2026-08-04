@@ -461,12 +461,18 @@ class RSASAConnector(phantom.BaseConnector):
         return RetVal(phantom.APP_SUCCESS, events)
 
     def _extract_device_and_hash(self, event):
+        if not isinstance(event, dict):
+            return RetVal(phantom.APP_ERROR, "Could not extract file hash. Event data is invalid.")
+
         investigate_url = ""
         event_id = ""
         for link in event.get("related_links") or []:
-            if link.get("type") == "investigate_original_event" and link.get("url"):
-                investigate_url = "{}{}".format(self._base_url, link["url"])
-                event_id = link["url"].split("/")[-1]
+            if not isinstance(link, dict):
+                continue
+            link_url = link.get("url")
+            if link.get("type") == "investigate_original_event" and isinstance(link_url, str) and link_url:
+                investigate_url = f"{self._base_url}{link_url}"
+                event_id = link_url.split("/")[-1]
 
         if not investigate_url or not event_id:
             return RetVal(phantom.APP_ERROR, "Could not extract file hash. Could not find investigate URL.")
@@ -507,18 +513,38 @@ class RSASAConnector(phantom.BaseConnector):
             except Exception as e:
                 return RetVal(phantom.APP_ERROR, f"Unable to connect to server. Error: {e!s}")
 
-            response_data = r.json().get("data") or {}
+            try:
+                response_json = r.json()
+            except ValueError:
+                return RetVal(phantom.APP_ERROR, "Could not parse file metadata response.")
+
+            if not isinstance(response_json, dict):
+                return RetVal(phantom.APP_ERROR, "Could not parse file metadata response.")
+
+            response_data = response_json.get("data") or {}
+            if not isinstance(response_data, dict):
+                return RetVal(phantom.APP_ERROR, "Could not parse file metadata response.")
+
             file_list = response_data.get("fileList") or []
-            if not file_list:
+            if not isinstance(file_list, list) or not file_list or not isinstance(file_list[0], list):
                 return RetVal(phantom.APP_ERROR, "Could not find file metadata in response.")
 
-            for entry in file_list[0] or []:
-                if "MD5" not in entry:
+            for entry in file_list[0]:
+                if not isinstance(entry, str):
                     continue
 
-                spl_entry = entry.split(",")
-                event["fileHash"] = event["fileHashMd5"] = spl_entry[0].split(":")[1].strip()
-                event["fileHashSha1"] = spl_entry[1].split(":")[1].strip()
+                hashes = {}
+                for part in entry.split(","):
+                    label, separator, value = part.partition(":")
+                    if separator:
+                        hashes[label.strip().upper()] = value.strip()
+
+                md5 = hashes.get("MD5")
+                sha1 = hashes.get("SHA1")
+                if md5 and re.fullmatch(r"[0-9a-fA-F]{32}", md5):
+                    event["fileHash"] = event["fileHashMd5"] = md5
+                if sha1 and re.fullmatch(r"[0-9a-fA-F]{40}", sha1):
+                    event["fileHashSha1"] = sha1
 
     def _set_sdi(self, default_id, input_dict):
         if "source_data_identifier" in input_dict:
