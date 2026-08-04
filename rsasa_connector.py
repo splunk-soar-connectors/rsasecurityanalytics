@@ -296,6 +296,11 @@ class RSASAConnector(phantom.BaseConnector):
                 result.set_status(phantom.APP_ERROR, "Server returned a response that was not a JSON. Please check your credentials"), resp_json
             )
 
+        if not isinstance(resp_json, dict):
+            return RetVal(
+                result.set_status(phantom.APP_ERROR, f"Server returned an unexpected JSON response type: {type(resp_json).__name__}"), None
+            )
+
         success = resp_json.get("success")
 
         if success is None:
