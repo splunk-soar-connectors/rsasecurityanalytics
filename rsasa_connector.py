@@ -21,7 +21,7 @@ import json
 import re
 import time
 from datetime import datetime, timedelta
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 import phantom.app as phantom
 import requests
@@ -81,6 +81,18 @@ class RSASAConnector(phantom.BaseConnector):
 
     def _login(self):
         config = self.get_config()
+
+        current_origin = self._get_url_origin(config[consts.RSASA_JSON_URL])
+        if current_origin is None:
+            return self.set_status(phantom.APP_ERROR, "Asset URL must use HTTP or HTTPS and include a valid host.")
+
+        credential_origin = self._state.get(consts.RSASA_JSON_CREDENTIAL_ORIGIN)
+        if credential_origin and credential_origin != current_origin:
+            return self.set_status(
+                phantom.APP_ERROR,
+                "The asset URL origin has changed since these credentials were first used. "
+                "Restore the original URL or create a new asset for the new server.",
+            )
 
         url = f"{config[consts.RSASA_JSON_URL]}/j_spring_security_check"
 
@@ -157,7 +169,31 @@ class RSASAConnector(phantom.BaseConnector):
                 phantom.APP_ERROR, f"Could not get ID of device named '{config[consts.RSASA_JSON_INCIDENT_MANAGER]}'. Can't continue"
             )
 
+        # Asset configuration cannot edit connector state, so the first successful
+        # login anchors where this stored credential may be sent on later actions.
+        self._state.setdefault(consts.RSASA_JSON_CREDENTIAL_ORIGIN, current_origin)
+
         return phantom.APP_SUCCESS
+
+    @staticmethod
+    def _get_url_origin(url):
+        try:
+            parsed = urlsplit(url)
+            port = parsed.port
+        except (TypeError, ValueError):
+            return None
+
+        scheme = parsed.scheme.lower()
+        hostname = parsed.hostname
+        if scheme not in {"http", "https"} or not hostname:
+            return None
+
+        if port is None:
+            port = 443 if scheme == "https" else 80
+        hostname = hostname.lower()
+        if ":" in hostname:
+            hostname = f"[{hostname}]"
+        return f"{scheme}://{hostname}:{port}"
 
     def _logout(self):
         if self._cookies is None:
