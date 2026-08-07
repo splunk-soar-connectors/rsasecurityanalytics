@@ -21,7 +21,7 @@ import json
 import re
 import time
 from datetime import datetime, timedelta
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 import phantom.app as phantom
 import requests
@@ -82,12 +82,33 @@ class RSASAConnector(phantom.BaseConnector):
     def _login(self):
         config = self.get_config()
 
+        current_origin = self._get_url_origin(config[consts.RSASA_JSON_URL])
+        if current_origin is None:
+            return self.set_status(phantom.APP_ERROR, "Asset URL must use HTTP or HTTPS and include a valid host.")
+
+        credential_origin = self._state.get(consts.RSASA_JSON_CREDENTIAL_ORIGIN)
+        if credential_origin and credential_origin != current_origin:
+            return self.set_status(
+                phantom.APP_ERROR,
+                "The asset URL origin has changed since these credentials were first used. "
+                "Restore the original URL or create a new asset for the new server.",
+            )
+
         url = f"{config[consts.RSASA_JSON_URL]}/j_spring_security_check"
 
         data = {"j_username": config[consts.RSASA_JSON_USERNAME], "j_password": config[consts.RSASA_JSON_PASSWORD]}
 
         try:
-            r = self._session.post(url, data=data, verify=config.get(consts.RSASA_JSON_VERIFY_SERVER_CERT, True))
+            r = self._session.post(
+                url,
+                data=data,
+                verify=config.get(consts.RSASA_JSON_VERIFY_SERVER_CERT, True),
+                timeout=consts.RSASA_DEFAULT_REQUEST_TIMEOUT,
+            )
+        except requests.exceptions.Timeout:
+            if self.get_action_identifier() == self.ACTION_ID_TEST_ASSET_CONNECTIVITY:
+                self.save_progress(consts.RSASA_ERR_TEST_CONNECTIVITY)
+            return self.set_status(phantom.APP_ERROR, consts.RSASA_ERR_SERVER_TIMEOUT)
         except Exception as e:
             if self.get_action_identifier() == self.ACTION_ID_TEST_ASSET_CONNECTIVITY:
                 self.save_progress(consts.RSASA_ERR_TEST_CONNECTIVITY)
@@ -157,7 +178,31 @@ class RSASAConnector(phantom.BaseConnector):
                 phantom.APP_ERROR, f"Could not get ID of device named '{config[consts.RSASA_JSON_INCIDENT_MANAGER]}'. Can't continue"
             )
 
+        # Asset configuration cannot edit connector state, so the first successful
+        # login anchors where this stored credential may be sent on later actions.
+        self._state.setdefault(consts.RSASA_JSON_CREDENTIAL_ORIGIN, current_origin)
+
         return phantom.APP_SUCCESS
+
+    @staticmethod
+    def _get_url_origin(url):
+        try:
+            parsed = urlsplit(url)
+            port = parsed.port
+        except (TypeError, ValueError):
+            return None
+
+        scheme = parsed.scheme.lower()
+        hostname = parsed.hostname
+        if scheme not in {"http", "https"} or not hostname:
+            return None
+
+        if port is None:
+            port = 443 if scheme == "https" else 80
+        hostname = hostname.lower()
+        if ":" in hostname:
+            hostname = f"[{hostname}]"
+        return f"{scheme}://{hostname}:{port}"
 
     def _logout(self):
         if self._cookies is None:
@@ -168,7 +213,13 @@ class RSASAConnector(phantom.BaseConnector):
         url = f"{config[consts.RSASA_JSON_URL]}/j_spring_security_logout"
 
         try:
-            self._session.get(url, verify=config.get(consts.RSASA_JSON_VERIFY_SERVER_CERT, True))
+            self._session.get(
+                url,
+                verify=config.get(consts.RSASA_JSON_VERIFY_SERVER_CERT, True),
+                timeout=consts.RSASA_DEFAULT_REQUEST_TIMEOUT,
+            )
+        except requests.exceptions.Timeout:
+            self.debug_print(consts.RSASA_ERR_SERVER_TIMEOUT)
         except Exception as e:
             self.debug_print(f"Logout failed: {e!s}")
 
@@ -213,7 +264,15 @@ class RSASAConnector(phantom.BaseConnector):
 
         # Make the call
         try:
-            r = self._session.get(url, params=params, verify=config.get(consts.RSASA_JSON_VERIFY_SERVER_CERT, True), headers=headers)
+            r = self._session.get(
+                url,
+                params=params,
+                verify=config.get(consts.RSASA_JSON_VERIFY_SERVER_CERT, True),
+                headers=headers,
+                timeout=consts.RSASA_DEFAULT_REQUEST_TIMEOUT,
+            )
+        except requests.exceptions.Timeout:
+            return RetVal(result.set_status(phantom.APP_ERROR, consts.RSASA_ERR_SERVER_TIMEOUT), resp_json)
         except Exception as e:
             return RetVal(result.set_status(phantom.APP_ERROR, consts.RSASA_ERR_SERVER_CONNECTION, e), resp_json)
 
@@ -235,6 +294,11 @@ class RSASAConnector(phantom.BaseConnector):
             # TODO the error returned is in HTML need to parse it
             return RetVal(
                 result.set_status(phantom.APP_ERROR, "Server returned a response that was not a JSON. Please check your credentials"), resp_json
+            )
+
+        if not isinstance(resp_json, dict):
+            return RetVal(
+                result.set_status(phantom.APP_ERROR, f"Server returned an unexpected JSON response type: {type(resp_json).__name__}"), None
             )
 
         success = resp_json.get("success")
@@ -461,18 +525,30 @@ class RSASAConnector(phantom.BaseConnector):
         return RetVal(phantom.APP_SUCCESS, events)
 
     def _extract_device_and_hash(self, event):
+        if not isinstance(event, dict):
+            return RetVal(phantom.APP_ERROR, "Could not extract file hash. Event data is invalid.")
+
         investigate_url = ""
         event_id = ""
         for link in event.get("related_links") or []:
-            if link.get("type") == "investigate_original_event" and link.get("url"):
-                investigate_url = "{}{}".format(self._base_url, link["url"])
-                event_id = link["url"].split("/")[-1]
+            if not isinstance(link, dict):
+                continue
+            link_url = link.get("url")
+            if link.get("type") == "investigate_original_event" and isinstance(link_url, str) and link_url:
+                investigate_url = f"{self._base_url}{link_url}"
+                event_id = link_url.split("/")[-1]
 
         if not investigate_url or not event_id:
             return RetVal(phantom.APP_ERROR, "Could not extract file hash. Could not find investigate URL.")
 
         try:
-            r = self._session.get(investigate_url, verify=self.get_config().get(consts.RSASA_JSON_VERIFY_SERVER_CERT, True))
+            r = self._session.get(
+                investigate_url,
+                verify=self.get_config().get(consts.RSASA_JSON_VERIFY_SERVER_CERT, True),
+                timeout=consts.RSASA_DEFAULT_REQUEST_TIMEOUT,
+            )
+        except requests.exceptions.Timeout:
+            return RetVal(phantom.APP_ERROR, consts.RSASA_ERR_SERVER_TIMEOUT)
         except Exception as e:
             return RetVal(phantom.APP_ERROR, f"Unable to connect to server. Error: {e!s}")
 
@@ -503,22 +579,45 @@ class RSASAConnector(phantom.BaseConnector):
                     url,
                     data={"ctoken": self._csrf},
                     verify=self.get_config().get(consts.RSASA_JSON_VERIFY_SERVER_CERT, True),
+                    timeout=consts.RSASA_DEFAULT_REQUEST_TIMEOUT,
                 )
+            except requests.exceptions.Timeout:
+                return RetVal(phantom.APP_ERROR, consts.RSASA_ERR_SERVER_TIMEOUT)
             except Exception as e:
                 return RetVal(phantom.APP_ERROR, f"Unable to connect to server. Error: {e!s}")
 
-            response_data = r.json().get("data") or {}
+            try:
+                response_json = r.json()
+            except ValueError:
+                return RetVal(phantom.APP_ERROR, "Could not parse file metadata response.")
+
+            if not isinstance(response_json, dict):
+                return RetVal(phantom.APP_ERROR, "Could not parse file metadata response.")
+
+            response_data = response_json.get("data") or {}
+            if not isinstance(response_data, dict):
+                return RetVal(phantom.APP_ERROR, "Could not parse file metadata response.")
+
             file_list = response_data.get("fileList") or []
-            if not file_list:
+            if not isinstance(file_list, list) or not file_list or not isinstance(file_list[0], list):
                 return RetVal(phantom.APP_ERROR, "Could not find file metadata in response.")
 
-            for entry in file_list[0] or []:
-                if "MD5" not in entry:
+            for entry in file_list[0]:
+                if not isinstance(entry, str):
                     continue
 
-                spl_entry = entry.split(",")
-                event["fileHash"] = event["fileHashMd5"] = spl_entry[0].split(":")[1].strip()
-                event["fileHashSha1"] = spl_entry[1].split(":")[1].strip()
+                hashes = {}
+                for part in entry.split(","):
+                    label, separator, value = part.partition(":")
+                    if separator:
+                        hashes[label.strip().upper()] = value.strip()
+
+                md5 = hashes.get("MD5")
+                sha1 = hashes.get("SHA1")
+                if md5 and re.fullmatch(r"[0-9a-fA-F]{32}", md5):
+                    event["fileHash"] = event["fileHashMd5"] = md5
+                if sha1 and re.fullmatch(r"[0-9a-fA-F]{40}", sha1):
+                    event["fileHashSha1"] = sha1
 
     def _set_sdi(self, default_id, input_dict):
         if "source_data_identifier" in input_dict:
@@ -652,9 +751,15 @@ class RSASAConnector(phantom.BaseConnector):
             dt_diff = utc_now - timedelta(days=int(config[consts.RSASA_JSON_SCHEDULED_POLL_DAYS]))
             start_time = calendar.timegm(dt_diff.timetuple())
             return (start_time * 1000, end_time)
-        elif last_time:
-            start_time = last_time
-            return (start_time, end_time)
+        elif last_time is not None:
+            try:
+                start_time = int(last_time)
+            except (TypeError, ValueError):
+                self.debug_print("Discarding invalid poll checkpoint")
+            else:
+                if 0 <= start_time <= end_time:
+                    return (start_time, end_time)
+                self.debug_print("Discarding out-of-range poll checkpoint")
 
         # treat it as the same days past as first run
         dt_diff = utc_now - timedelta(days=int(config[consts.RSASA_JSON_SCHEDULED_POLL_DAYS]))
@@ -729,7 +834,11 @@ class RSASAConnector(phantom.BaseConnector):
                     self._state[consts.RSASA_JSON_LAST_DATE_TIME] = previous_checkpoint
                 self.debug_print(f"{failed_saves} incident(s) were not durably saved; checkpoint was not advanced")
             elif len(incidents) == int(max_containers):
-                self._state[consts.RSASA_JSON_LAST_DATE_TIME] = incidents[-1]["created"] + 1
+                try:
+                    incident_time = int(incidents[-1]["created"])
+                except (KeyError, TypeError, ValueError):
+                    incident_time = end_time
+                self._state[consts.RSASA_JSON_LAST_DATE_TIME] = min(max(incident_time + 1, start_time), end_time + 1)
             else:
                 self._state[consts.RSASA_JSON_LAST_DATE_TIME] = end_time + 1
 
@@ -759,7 +868,7 @@ class RSASAConnector(phantom.BaseConnector):
 
         devices = data.get("data")
 
-        if not data:
+        if not isinstance(devices, list) or not devices:
             return action_result.set_status(phantom.APP_ERROR, consts.RSASA_ERR_NO_DEVICES)
 
         action_result.add_data(devices)
